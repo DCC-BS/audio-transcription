@@ -29,6 +29,16 @@
 
 </details>
 
+## Fork
+
+This is a fork of the original work done by machinelearningZH. <https://github.com/machinelearningZH/audio-transcription>. Thank you for open sourcing the code.
+
+Things changed:
+
+- Added docker support
+- Fixed minor bugs
+- Changed branding
+
 ## Setup Instructions
 ### Hardware requirements
 - We strongly recommend using a CUDA-compatible graphics card, as transcription on a CPU is extremely slow.
@@ -37,35 +47,11 @@
 - 8GB RAM
   
 ### Installation
-- Ensure you have a compatible NVIDIA driver and CUDA Version installed: https://pytorch.org/
-- Install ffmpeg
-    - Windows: https://phoenixnap.com/kb/ffmpeg-windows
-    - Linux (Ubuntu): `sudo apt install ffmpeg`
-- Install conda
-    - Windows:
-        - Install [Anaconda](https://docs.anaconda.com/free/anaconda/install/) or [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/).
-    - Linux (Ubuntu):
-        - `mkdir -p ~/miniconda3`
-        - `wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh`
-        - `bash ~/miniconda3/miniconda.sh -u`
-        - `rm ~/miniconda3/miniconda.sh`
-        - Close and re-open your current shell.
-- Create a new Python environment, e.g.: `conda create --name transcribo python=3.10`
-- Activate your new environment: `conda activate transcribo`
-- Clone this repo.
-- Install packages:
-    - Check the installed cuda version: `nvcc --version`
-    - Run the following command with your specific cuda version. **This example is for cuda version 11.8, edit the command for your installed version**.
-    - `conda install pytorch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 pytorch-cuda=11.8 -c pytorch -c nvidia`
-    - `pip install -r requirements.txt`
-- Make sure, that the onnxruntime-gpu package is installed. Otherwise uninstall onnxruntime and install onnxruntime-gpu (if in doubt, just reinstall onnxruntime-gpu)
-    - `pip uninstall onnxruntime`
-    - `pip install --force-reinstall onnxruntime-gpu`
-    - `pip install --force-reinstall -v "numpy==1.26.3"`
+- Docker (on Windows use WSL2 backend)
 - Create a Huggingface access token
     - Accept [pyannote/segmentation](https://huggingface.co/pyannote/segmentation)) user conditions
     - Accept [pyannote/speaker-diarization-3.0](https://huggingface.co/pyannote/speaker-diarization) user conditions
-    - Create access token at [hf.co/settings/tokens](https://hf.co/settings/tokens) with read and write permissions.
+    - Create access token at [hf.co/settings/tokens](https://hf.co/settings/tokens) with read permissions.
 - Create a `.env` file and add your access token. See the file `.env_example`.
 ```
     HF_AUTH_TOKEN = ...
@@ -74,17 +60,7 @@
 
 ### Running the Application
 Start the worker and frontend scripts:
-- Linux
-    - `tmux new -s transcribe_worker`
-    - `conda activate transcribo`
-    - `python worker.py`
-    - Exit tmux session with `CTRL-B` and `D`.
-    - `tmux new -s transcribe_frontend`
-    - `conda activate transcribo`
-    - `python main.py`
-    - You can restore your sessions with `tmux attach -t transcribe_worker` and `tmux attach -t transcribe_frontend`
-- Windows
-    - See `run_gui.bat`, `run_transcribo.bat` and `run_worker.bat`
+- docker-compose up -d
 
 ### Configuration
 |   | Description |

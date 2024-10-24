@@ -81,7 +81,7 @@ def speaker_information(data):
             [
                 segment["speaker"]
                 for segment in data
-                if segment["speaker"] is not "unknown"
+                if segment["speaker"] != "unknown"
             ]
         )
     )
@@ -92,7 +92,7 @@ def speaker_information(data):
     speakers.append("unknown")
 
     for idx, speaker in enumerate(speakers):
-        if speaker is not "unknown":
+        if speaker != "unknown":
             content += f'\t\t\t\t\t<span contenteditable="true" class="form-control" id="IN_SPEAKER_{str(idx).zfill(2)}" style="margin-top:4px;">Person {speaker[-2:]}</span>\n'
 
     content += "\t\t\t\t<br><br><br><br><br></div>\n"
@@ -127,7 +127,7 @@ def transcript(data, combine_speaker):
             [
                 segment["speaker"]
                 for segment in data
-                if segment["speaker"] is not "unknown"
+                if segment["speaker"] != "unknown"
             ]
         )
     )
@@ -141,7 +141,7 @@ def transcript(data, combine_speaker):
     for segment in data:
         if (
             segment["speaker"] not in speaker_order
-            and segment["speaker"] is not "unknown"
+            and segment["speaker"] != "unknown"
         ):
             speaker_order.append(segment["speaker"])
 
@@ -210,7 +210,7 @@ def javascript(data, file_path, encode_base64, file_name):
             [
                 segment["speaker"]
                 for segment in data
-                if segment["speaker"] is not "unknown"
+                if segment["speaker"] != "unknown"
             ]
         )
     )
@@ -221,7 +221,7 @@ def javascript(data, file_path, encode_base64, file_name):
 
     speakers_array = "var speakers = Array("
     for idx, speaker in enumerate(speakers):
-        if speaker is not "unknown":
+        if speaker != "unknown":
             speakers_array += f'"IN_SPEAKER_{str(idx).zfill(2)}", '
     if len(speakers) > 1:
         speakers_array = speakers_array[:-2] + ")"
@@ -232,7 +232,7 @@ def javascript(data, file_path, encode_base64, file_name):
             [
                 segment["speaker"]
                 for segment in data
-                if segment["speaker"] is not "unknown"
+                if segment["speaker"] != "unknown"
             ]
         )
     )
