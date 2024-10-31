@@ -9,6 +9,7 @@ services:
       - "8000:8000"
     volumes:
       - hugging_face_cache:/root/.cache/huggingface
+      - torch_cache:/root/.cache/torch/hub
     networks:
       - transcribo-network
     deploy:
@@ -37,3 +38,4 @@ networks:
 
 volumes:
   hugging_face_cache:
+  torch_cache:
