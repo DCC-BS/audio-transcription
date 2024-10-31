@@ -1,4 +1,5 @@
-import datetime, copy
+import copy
+import datetime
 
 
 def create_srt(data):

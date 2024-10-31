@@ -1,10 +1,11 @@
-import torch
-import pandas as pd
 import time
-import whisperx
-from whisperx.audio import SAMPLE_RATE, log_mel_spectrogram, N_SAMPLES
 
-from data.const import data_leaks
+import pandas as pd
+import torch
+import whisperx
+from whisperx.audio import N_SAMPLES, SAMPLE_RATE, log_mel_spectrogram
+
+from const import data_leaks
 
 
 def get_prompt(self, tokenizer, previous_tokens, without_timestamps, prefix):

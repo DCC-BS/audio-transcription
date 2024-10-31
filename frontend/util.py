@@ -19,13 +19,10 @@ def get_length(filename):
     return float(result.stdout)
 
 
-def time_estimate(filename, online=True):
+def time_estimate(filename):
     try:
         run_time = get_length(filename)
-        if online:
-            return run_time / 10, run_time
-        else:
-            return run_time / 6, run_time
+        return run_time / 6, run_time
     except Exception as e:
         print(e)
         return -1, -1

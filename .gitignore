@@ -1,6 +1,6 @@
 .DS_Store
 .Rhistory
-.env
+.venv
 .nicegui/
 __pycache__/
 data/__pycache__/

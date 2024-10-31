@@ -1,0 +1,39 @@
+services:
+  transcribo-api:
+    restart: unless-stopped
+    build:
+      context: ./api/
+      dockerfile: Dockerfile
+    container_name: transcribo-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - hugging_face_cache:/root/.cache/huggingface
+    networks:
+      - transcribo-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ "gpu" ]
+
+  transcribo-frontend:
+    build:
+      context: ./frontend/
+      dockerfile: Dockerfile
+    container_name: transcribo-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    networks:
+      - transcribo-network
+    environment:
+      - API_URL=http://transcribo-api:8000
+
+networks:
+  transcribo-network:
+
+volumes:
+  hugging_face_cache:

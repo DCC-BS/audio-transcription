@@ -45,7 +45,7 @@ Things changed:
     - https://developer.nvidia.com/cuda-gpus
 - If you are using a graphics card, you need at least 8GB VRAM. Performance is better with 16GB VRAM.
 - 8GB RAM
-  
+
 ### Installation
 - Docker (on Windows use WSL2 backend)
 - Create a Huggingface access token
@@ -59,18 +59,13 @@ Things changed:
 - Edit all the variables of `.env_example` in your `.env` file for your specific configuration. Make sure that your `.env` file is in your `.gitignore`.
 
 ### Running the Application
-Start the worker and frontend scripts:
 - docker-compose up -d
 
 ### Configuration
 |   | Description |
 |---|---|
-| ONLINE | Boolean. If TRUE, exposes the frontend in your network. For https, you must provide a SSL cert and key file. See the [nicegui](https://nicegui.io/documentation/section_configuration_deployment) documentation for more information |
-| SSL_CERTFILE | String. The file path to the SSL cert file |
-| SSL_KEYFILE | String. The file path to the SSL key file |
 | STORAGE_SECRET | String. Secret key for cookie-based identification of users |
 | ROOT | String. path to main.py and worker.py |
-| WINDOWS | Boolean. Set TRUE if you are running this application on Windows. |
 | DEVICE | String. 'cuda' if you are using a GPU. 'cpu' otherwise. |
 | ADDITIONAL_SPEAKERS | Integer. Number of additional speakers provied in the editor |
 | BATCH_SIZE | Integer. Batch size for Whisper inference. Recommended batch size is 4 with 8GB VRAM and 32 with 16GB VRAM. |

@@ -1,0 +1,43 @@
+[project]
+name = "Transcribo-API"
+version = "1.0.0"
+description = "API for Transcribo to transcribe audio files using WhisperX"
+readme = "README.md"
+requires-python = "==3.12.7"
+dependencies = [
+    "torch==2.5.0+cu124",
+    "torchaudio==2.5.0+cu124",
+    "onnxruntime-gpu==1.18.1",
+    "numpy==1.26.3",
+    "ffmpeg_python==0.2.0",
+    "pandas==2.2.2",
+    "pyannote.audio==3.1.1",
+    "pyannote.core==5.0.0",
+    "pyannote.database==5.0.1",
+    "pyannote.metrics==3.2.1",
+    "pyannote.pipeline==3.0.1",
+    "python-dotenv==1.0.1",
+    "whisperx==3.1.5",
+    "speechbrain==0.5.16",
+    "fastapi>=0.115.4",
+    "python-multipart>=0.0.17",
+    "uvicorn>=0.32.0",
+]
+
+[tool.uv.sources]
+torch = { index = "pytorch" }
+torchaudio = { index = "pytorch" }
+onnxruntime-gpu = { index = "onnx" }
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[[tool.uv.index]]
+name = "onnx"
+url = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/"
+explicit = true
+
+[tool.uv.workspace]
+members = ["api"]

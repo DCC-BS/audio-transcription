@@ -1,0 +1,14 @@
+[project]
+name = "Trascribo-Frontend"
+version = "0.1.0"
+description = "Transcribe any audio or video file. Edit and view your transcripts in a standalone HTML editor."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiofiles>=24.1.0",
+    "aiohttp>=3.10.10",
+    "dataclasses-json>=0.6.7",
+    "nicegui>=2.5.0",
+    "pandas>=2.2.3",
+    "python-dotenv>=1.0.1",
+]
