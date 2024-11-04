@@ -3,4 +3,5 @@ COPY --from=ghcr.io/astral-sh/uv:0.4.29 /uv /uvx /bin/
 ADD . /app
 WORKDIR /app
 RUN uv sync --frozen
+WORKDIR /app/src
 ENTRYPOINT uv run main.py

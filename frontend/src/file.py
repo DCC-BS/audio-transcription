@@ -6,15 +6,17 @@ from dataclasses_json import dataclass_json
 @dataclass
 class FileStatus:
     filename: str
+    out_dir: str
     status_message: str
     progress_percentage: float  # 0.0 to 100.0
     estimated_time_remaining: int  # seconds
     last_modified: float  # timestamp
     
     @classmethod
-    def create_queued(cls, filename: str, last_modified: float, estimated_time: int = 0) -> 'FileStatus':
+    def create_queued(cls, filename: str, out_dir: str, last_modified: float, estimated_time: int = 0) -> 'FileStatus':
         return cls(
             filename=filename,
+            out_dir=out_dir,
             status_message="Datei in Warteschlange. Geschätzte Wartezeit: ",
             progress_percentage=0.0,
             estimated_time_remaining=estimated_time,
@@ -22,9 +24,10 @@ class FileStatus:
         )
     
     @classmethod
-    def create_completed(cls, filename: str, last_modified: float) -> 'FileStatus':
+    def create_completed(cls, filename: str, out_dir: str, last_modified: float) -> 'FileStatus':
         return cls(
             filename=filename,
+            out_dir=out_dir,
             status_message="Datei transkribiert",
             progress_percentage=100.0,
             estimated_time_remaining=0,
@@ -32,9 +35,10 @@ class FileStatus:
         )
     
     @classmethod
-    def create_error(cls, filename: str, last_modified: float, error_message: str) -> 'FileStatus':
+    def create_error(cls, filename: str, out_dir: str, last_modified: float, error_message: str) -> 'FileStatus':
         return cls(
             filename=filename,
+            out_dir=out_dir,
             status_message=error_message,
             progress_percentage=-1.0,
             estimated_time_remaining=0,
