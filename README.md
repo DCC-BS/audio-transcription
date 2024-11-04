@@ -36,6 +36,7 @@ This is a fork of the original work done by machinelearningZH. <https://github.c
 Things changed:
 
 - Added docker support
+- Split frontend and backend
 - Fixed minor bugs
 - Changed branding
 
@@ -52,14 +53,14 @@ Things changed:
     - Accept [pyannote/segmentation](https://huggingface.co/pyannote/segmentation)) user conditions
     - Accept [pyannote/speaker-diarization-3.0](https://huggingface.co/pyannote/speaker-diarization) user conditions
     - Create access token at [hf.co/settings/tokens](https://hf.co/settings/tokens) with read permissions.
-- Create a `.env` file and add your access token. See the file `.env_example`.
+- Create a `.env` file for both api and add your access token at api/.env. See the file `api/.env_example`.
 ```
     HF_AUTH_TOKEN = ...
 ```
 - Edit all the variables of `.env_example` in your `.env` file for your specific configuration. Make sure that your `.env` file is in your `.gitignore`.
 
 ### Running the Application
-- docker-compose up -d
+- docker-compose up -d --build
 
 ### Configuration
 |   | Description |

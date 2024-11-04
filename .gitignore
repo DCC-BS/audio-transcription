@@ -2,7 +2,6 @@
 .Rhistory
 .venv
 api/.env
-frontend/src/.env
 .nicegui/
 __pycache__/
 frontend/src/data/
