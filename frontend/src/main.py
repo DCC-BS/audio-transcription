@@ -25,6 +25,17 @@ API_URL = os.getenv("API_URL", "http://localhost:8000")
 def initialize_storage() -> None:
     """Initialize storage if not already present"""
     app.storage.user["updates"] = app.storage.user.get("updates", {})
+    file_status: FileStatus
+    updates = app.storage.user["updates"]
+    for idx, file_status in updates.items():
+        if (
+            os.path.exists(file_status.out_dir)
+            and os.path.isdir(file_status.out_dir)
+            and os.path.exists(os.path.join(file_status.out_dir, file_status.filename))
+        ):
+            continue
+        else:
+            updates.pop(idx)
     app.storage.user["editor_content"] = None
     app.storage.user["editor_files"] = None
 
@@ -56,7 +67,8 @@ async def handle_upload(e: events.UploadEventArguments, refresh_file_view):
         # Send file to API
         async with aiohttp.ClientSession() as session:
             data = aiohttp.FormData()
-            data.add_field("audio_file", e.content.read(), filename=file_name)
+            content = e.content.read()
+            data.add_field("audio_file", content, filename=file_name)
             for word in hotwords:
                 data.add_field("hotwords", word)
 
@@ -98,7 +110,7 @@ async def handle_upload(e: events.UploadEventArguments, refresh_file_view):
                     async with aiofiles.open(
                         os.path.join(out_dir, file_name + ".mp4"), "wb"
                     ) as f:
-                        await f.write(e.content.read())
+                        await f.write(content)
 
                     # Update UI to show completion
                     app.storage.user.get("updates")[out_dir] = FileStatus(
@@ -225,6 +237,7 @@ async def open_editor(file_status: FileStatus) -> None:
     """
     file_path = os.path.join(file_status.out_dir, file_status.filename)
     html_file_path = file_path + ".html"
+    user_id = str(app.storage.browser["id"])
 
     try:
         with open(html_file_path, "r", encoding="utf-8") as f:
@@ -232,17 +245,13 @@ async def open_editor(file_status: FileStatus) -> None:
 
             # Update video source paths
             content = content.replace(
-                '<video id="player" width="100%" style="max-height: 320px" src="" type="video/MP4" controls="controls" position="sticky"></video>',
-                f'<video id="player" width="100%" style="max-height: 320px" src="{file_path}.mp4" type="video/MP4" controls="controls" position="sticky"></video>',
-            )
-            content = content.replace(
                 '<video id="player" width="100%" style="max-height: 250px" src="" type="video/MP4" controls="controls" position="sticky"></video>',
-                f'<video id="player" width="100%" style="max-height: 250px" src="{file_path}.mp4" type="video/MP4" controls="controls" position="sticky"></video>',
+                f'<video id="player" width="100%" style="max-height: 250px" src="/data/{user_id}/{file_status.filename}.mp4" type="video/MP4" controls="controls" position="sticky"></video>',
             )
 
             # Store content and file information in user storage
             app.storage.user["editor_content"] = content
-            app.storage.user["editor_file"] = html_file_path
+            app.storage.user["editor_file"] = file_status
 
             # Open editor in new tab
             ui.navigate.to(editor, new_tab=True)
@@ -327,14 +336,14 @@ async def editor():
 
         ui.notify("Änderungen gespeichert.")
 
-    user_id = str(app.storage.browser["id"])
-    app.add_media_files("/data/" + user_id, os.path.join(ROOT + "data/out/" + user_id))
-
     editor_content = app.storage.user.get("editor_content")
-    editor_file = app.storage.user.get("editor_file")
+    editor_file: FileStatus = app.storage.user.get("editor_file")
+
+    user_id = str(app.storage.browser["id"])
+    app.add_media_files("/data/" + user_id, editor_file.out_dir)
 
     if editor_content and editor_file:
-        full_file_name = editor_file
+        full_file_name = os.path.join(editor_file.out_dir, editor_file.filename)
         ui.on("editor_save", lambda e: handle_save(full_file_name))
         ui.add_body_html("<!--start-->")
 
