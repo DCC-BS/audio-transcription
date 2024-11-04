@@ -464,7 +464,7 @@ async def main_page():
 
     # Create the GUI
     # Header should be at the top level, not inside a column
-    with ui.header(elevated=True).style("background-color: #0070b4;").props(
+    with ui.header(elevated=True).style("background-color: #ffffff;").props(
         "fit=scale-down"
     ).classes("q-pa-xs-xs"):
         ui.image(ROOT + "assets/data/banner.png").style("height: 90px; width: 443px;")

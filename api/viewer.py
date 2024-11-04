@@ -45,7 +45,7 @@ def navbar(root):
         logo = f.read()
     content = "<body>"
     content += "\n"
-    content += f'\t<nav class="navbar sticky-top navbar-light" style="background-color: #0070b4; z-index: 999">\n\t\t<img src="{logo}" width="64" height="105" alt=""></img>\n\t</nav>'
+    content += f'\t<nav class="navbar sticky-top navbar-light" style="background-color: #ffffff; z-index: 999">\n\t\t<img src="{logo}" width="64" height="105" alt=""></img>\n\t</nav>'
     content += "\n"
     return content
 

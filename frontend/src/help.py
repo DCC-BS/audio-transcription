@@ -10,7 +10,7 @@ ROOT = os.getenv("ROOT")
 
 @ui.page("/help")
 def help():
-    with ui.header(elevated=True).style("background-color: #0070b4;").props(
+    with ui.header(elevated=True).style("background-color: #ffffff;").props(
             "fit=scale-down"
         ).classes("q-pa-xs-xs"):
             ui.image(ROOT + "assets/data/banner.png").style("height: 90px; width: 443px;")
