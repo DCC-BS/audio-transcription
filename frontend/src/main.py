@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from file import FileStatus
 from help import help
 from nicegui import app, events, ui
+import copy
 
 logger = Logger(__name__)
 
@@ -24,10 +25,12 @@ API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 def initialize_storage() -> None:
     """Initialize storage if not already present"""
-    app.storage.user["updates"] = app.storage.user.get("updates", {})
+    app.storage.user["updates"] = app.storage.user.get("updates", dict)
     file_status: FileStatus
     updates = app.storage.user["updates"]
-    for idx, file_status in updates.items():
+    copy_updates = copy.deepcopy(updates)
+    cleaned_updates = copy.deepcopy(updates)
+    for idx, file_status in copy_updates.items():
         if (
             os.path.exists(file_status.out_dir)
             and os.path.isdir(file_status.out_dir)
@@ -35,7 +38,11 @@ def initialize_storage() -> None:
         ):
             continue
         else:
-            updates.pop(idx)
+            cleaned_updates.pop(idx)
+    app.storage.user["updates"] = copy.deepcopy(cleaned_updates)
+    del updates
+    del copy_updates
+    del cleaned_updates
     app.storage.user["editor_content"] = None
     app.storage.user["editor_files"] = None
 
@@ -271,7 +278,7 @@ async def download_all() -> None:
 
     try:
         with zipfile.ZipFile(zip_path, "w", allowZip64=True) as myzip:
-            file_list = app.storage.user.get("updates").values()
+            file_list = copy.deepcopy(app.storage.user.get("updates").values())
 
             for file_status in file_list:
                 # Only include completed transcriptions
@@ -377,7 +384,7 @@ async def main_page():
     @ui.refreshable
     def display_queue() -> None:
         """Display files that are currently in queue or being processed"""
-        updates = app.storage.user.get("updates").values()
+        updates = copy.deepcopy(app.storage.user.get("updates").values())
 
         file_status: FileStatus
         for file_status in updates:
@@ -395,7 +402,7 @@ async def main_page():
     @ui.refreshable
     def display_results() -> None:
         """Display completed and failed transcriptions"""
-        updates = app.storage.user.get("updates").values()
+        updates = copy.deepcopy(app.storage.user.get("updates").values())
         any_file_ready = False
         file_status: FileStatus
         for file_status in updates:
@@ -443,7 +450,7 @@ async def main_page():
         """Refresh the file view UI components"""
         known_errors = [
             status
-            for status in app.storage.user.get("updates").values()
+            for status in copy.deepcopy(app.storage.user.get("updates").values())
             if status.progress_percentage == -1.0
         ]
         num_errors = len(known_errors)
