@@ -6,7 +6,7 @@ import os
 import shutil
 import time
 import zipfile
-from logging import Logger
+from logging import Logger, FileHandler
 
 import aiofiles
 import aiohttp
@@ -16,6 +16,7 @@ from help import help
 from nicegui import app, events, ui
 
 logger = Logger(__name__)
+logger.addHandler(FileHandler(filename="ui.log"))
 
 load_dotenv()
 
@@ -84,8 +85,8 @@ async def handle_upload(e: events.UploadEventArguments, refresh_file_view):
                 data.add_field("hotwords", word)
 
             async with session.post(f"{API_URL}/transcribe", data=data) as response:
+                result = await response.json()
                 if response.status == 200:
-                    result = await response.json()
                     # Update status with queue information
                     app.storage.user.get("updates")[out_dir] = FileStatus(
                         filename=file_name,
@@ -172,7 +173,7 @@ async def poll_status(request_id: str, out_dir: str, refresh_file_view):
     """Poll the API for transcription status"""
     while True:
         try:
-            logger.info("Polling transcription status")
+            logger.info(f"Polling transcription status with id {request_id}")
             async with aiohttp.ClientSession() as session:
                 async with session.get(f"{API_URL}/status/{request_id}") as response:
                     logger.info(f"Received response from API, status {response.status}")
@@ -181,6 +182,7 @@ async def poll_status(request_id: str, out_dir: str, refresh_file_view):
                         logger.info(f"Transcription status: {status}")
 
                         if status["status"] == "completed":
+                            logger.info(f"Transcription status: {status["status"]}")
                             # Handle completed transcription
                             result = status["result"]
                             file_name = app.storage.user.get("updates")[
@@ -213,9 +215,11 @@ async def poll_status(request_id: str, out_dir: str, refresh_file_view):
                                     last_modified=time.time(),
                                 )
                             )
+                            refresh_file_view(refresh_queue=True, refresh_results=True)
                             break
 
                         elif status["status"] == "processing":
+                            logger.info(f"Transcription status: {status["status"]}")
                             # Update processing status
                             app.storage.user.get("updates")[out_dir] = FileStatus(
                                 filename=app.storage.user.get("updates")[
@@ -231,6 +235,7 @@ async def poll_status(request_id: str, out_dir: str, refresh_file_view):
                             )
 
                         else:
+                            logger.info(f"Transcription status: {status["status"]}")
                             # Update queue status
                             app.storage.user.get("updates")[out_dir] = FileStatus(
                                 filename=app.storage.user.get("updates")[
@@ -238,7 +243,7 @@ async def poll_status(request_id: str, out_dir: str, refresh_file_view):
                                 ].filename,
                                 out_dir=out_dir,
                                 status_message=f"In Warteschlange (Position {status['position']})",
-                                progress_percentage=0.0,
+                                progress_percentage=10.0,
                                 estimated_time_remaining=status["estimated_wait_time"],
                                 last_modified=time.time(),
                                 queue_position=status["position"],
@@ -498,7 +503,9 @@ async def main_page():
                     minutes = file_status.estimated_time_remaining // 60
                     seconds = file_status.estimated_time_remaining % 60
                     time_text = (
-                        f"{minutes}m {seconds}s" if minutes > 0 else f"{seconds}s"
+                        f"{minutes:.0f}m {seconds:.0f}s"
+                        if minutes > 0
+                        else f"{seconds:.0f}s"
                     )
                     status_text += f" ({time_text})"
 

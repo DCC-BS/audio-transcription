@@ -108,6 +108,8 @@ async def process_queue():
             item: QueueItem = request_queue.get()
             try:
                 item.status = "processing"
+                item.position = 0
+                active_requests[item.id] = item
 
                 # Create temporary file
                 temp_file_path = Path(ROOT + f"temp_{item.file_name}")
@@ -127,8 +129,23 @@ async def process_queue():
             except Exception as e:
                 item.status = "failed"
                 item.result = {"error": str(e)}
+                active_requests[item.id] = item
             finally:
                 PROCESSING = False
+
+                # Cleanup temporary file
+                if temp_file_path.exists():
+                    temp_file_path.unlink()
+
+                # Update positions and estimated wait times for remaining queued items
+                total_wait_time = 0.0
+                for queued_item in list(active_requests.values()):
+                    if queued_item.status == "queued":
+                        # Each 10 seconds of audio takes ~1 second to process
+                        processing_time = queued_item.audio_length / 10
+                        queued_item.position -= 1
+                        queued_item.estimated_wait_time = total_wait_time
+                        total_wait_time += processing_time
 
         await asyncio.sleep(1)
 
