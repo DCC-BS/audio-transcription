@@ -11,16 +11,18 @@ class FileStatus:
     progress_percentage: float  # 0.0 to 100.0
     estimated_time_remaining: int  # seconds
     last_modified: float  # timestamp
+    queue_position: int = 0
     
     @classmethod
-    def create_queued(cls, filename: str, out_dir: str, last_modified: float, estimated_time: int = 0) -> 'FileStatus':
+    def create_queued(cls, filename: str, out_dir: str, last_modified: float, queue_position: int, estimated_time: int = 0) -> 'FileStatus':
         return cls(
             filename=filename,
             out_dir=out_dir,
-            status_message="Datei in Warteschlange. Geschätzte Wartezeit: ",
+            status_message=f"In Warteschlange (Position {queue_position}). Geschätzte Wartezeit: {estimated_time} Sekunden",
             progress_percentage=0.0,
             estimated_time_remaining=estimated_time,
-            last_modified=last_modified
+            last_modified=last_modified,
+            queue_position=queue_position
         )
     
     @classmethod

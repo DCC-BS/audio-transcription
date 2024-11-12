@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import copy
 import datetime
@@ -31,12 +32,18 @@ def initialize_storage() -> None:
     copy_updates = copy.deepcopy(updates)
     cleaned_updates = copy.deepcopy(updates)
     for idx, file_status in copy_updates.items():
-        if (
-            os.path.exists(file_status.out_dir)
-            and os.path.isdir(file_status.out_dir)
-            and os.path.exists(os.path.join(file_status.out_dir, file_status.filename))
-        ):
-            continue
+        if os.path.exists(file_status.out_dir) and os.path.isdir(file_status.out_dir):
+            # delete files older than 1 day
+            if os.path.exists(
+                os.path.join(file_status.out_dir, file_status.filename)
+            ) and os.path.getmtime(
+                os.path.join(file_status.out_dir, file_status.filename)
+            ) < (time.time() - (60 * 60 * 24)):
+                logger.info(
+                    f"Deleting file {file_status.out_dir}/{file_status.filename}"
+                )
+                os.remove(os.path.join(file_status.out_dir, file_status.filename))
+                cleaned_updates.pop(idx)
         else:
             cleaned_updates.pop(idx)
     app.storage.user["updates"] = copy.deepcopy(cleaned_updates)
@@ -50,18 +57,15 @@ def initialize_storage() -> None:
 async def handle_upload(e: events.UploadEventArguments, refresh_file_view):
     # Get hotwords if they exist
     hotwords = app.storage.user.get("vocab", "").strip().split("\n")
-
     user_id = str(app.storage.browser["id"])
-
     now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     out_dir = os.path.join(ROOT, "data/out/", user_id, now)
     error_dir = os.path.join(ROOT, "data/error/", user_id, now)
     os.makedirs(out_dir, exist_ok=True)
-
     file_name = e.name
 
     try:
-        # Update UI to show processing status
+        # Update UI to show upload status
         app.storage.user.get("updates")[out_dir] = FileStatus(
             filename=file_name,
             out_dir=out_dir,
@@ -80,77 +84,177 @@ async def handle_upload(e: events.UploadEventArguments, refresh_file_view):
                 data.add_field("hotwords", word)
 
             async with session.post(f"{API_URL}/transcribe", data=data) as response:
-                # Update status of file
-                app.storage.user.get("updates")[out_dir] = FileStatus(
-                    filename=file_name,
-                    out_dir=out_dir,
-                    status_message="Datei wird verarbeitet...",
-                    progress_percentage=50.0,
-                    estimated_time_remaining=10,
-                    last_modified=time.time(),
-                )
-
-                refresh_file_view(refresh_queue=True, refresh_results=True)
-
                 if response.status == 200:
                     result = await response.json()
-
-                    # Save transcription data
-                    async with aiofiles.open(
-                        os.path.join(out_dir, file_name + ".json"), "w"
-                    ) as f:
-                        await f.write(str(result["transcription"]))
-
-                    # Save SRT
-                    async with aiofiles.open(
-                        os.path.join(out_dir, file_name + ".srt"), "w"
-                    ) as f:
-                        await f.write(result["srt"])
-
-                    # Save viewer HTML
-                    async with aiofiles.open(
-                        os.path.join(out_dir, file_name + ".html"), "w"
-                    ) as f:
-                        await f.write(result["viewer"])
-
-                    # Save audio file
-                    async with aiofiles.open(
-                        os.path.join(out_dir, file_name + ".mp4"), "wb"
-                    ) as f:
-                        await f.write(content)
-
-                    # Update UI to show completion
+                    # Update status with queue information
                     app.storage.user.get("updates")[out_dir] = FileStatus(
                         filename=file_name,
                         out_dir=out_dir,
-                        status_message="Datei transkribiert",
-                        progress_percentage=100.0,
-                        estimated_time_remaining=0,
+                        status_message=f"In Warteschlange (Position {result['position']})",
+                        progress_percentage=0.0,
+                        estimated_time_remaining=result["estimated_wait_time"],
                         last_modified=time.time(),
+                        queue_position=result["position"],
                     )
 
-                    refresh_file_view(refresh_queue=True, refresh_results=True)
-
+                    # Start polling for status
+                    asyncio.create_task(
+                        poll_status(result["request_id"], out_dir, refresh_file_view)
+                    )
                 else:
-                    # Handle error
-                    error_msg = await response.text()
-                    async with aiofiles.open(
-                        os.path.join(error_dir, file_name + ".txt"), "w"
-                    ) as f:
-                        await f.write(error_msg)
-
-                    app.storage.user.get("updates")[out_dir].status_message = error_msg
-                    app.storage.user.get("updates")[out_dir].progress_percentage = -1.0
+                    await handle_error(response, out_dir, error_dir, file_name)
 
     except Exception as e:
-        # Handle connection/processing errors
-        async with aiofiles.open(os.path.join(error_dir, file_name + ".txt"), "w") as f:
-            await f.write(str(e))
-        app.storage.user.get("updates")[out_dir].status_message = error_msg
-        app.storage.user.get("updates")[out_dir].progress_percentage = -1.0
+        await handle_upload_error(e, out_dir, error_dir, file_name)
 
-    # Force refresh of the file view
     refresh_file_view(refresh_queue=True, refresh_results=True)
+
+
+async def handle_error(response, out_dir, error_dir, file_name):
+    """Handle API response errors during file upload"""
+    try:
+        error_msg = await response.text()
+        os.makedirs(error_dir, exist_ok=True)
+
+        # Save error details to file
+        async with aiofiles.open(os.path.join(error_dir, file_name + ".txt"), "w") as f:
+            await f.write(error_msg)
+
+        # Update UI with error status
+        app.storage.user.get("updates")[out_dir] = FileStatus.create_error(
+            filename=file_name,
+            out_dir=out_dir,
+            last_modified=time.time(),
+            error_message=f"API Fehler: {error_msg}" if error_msg else "API Fehler",
+        )
+
+        if response.status == 503:  # Queue full error
+            ui.notify(
+                "Warteschlange ist voll. Bitte versuchen Sie es später erneut.",
+                color="warning",
+            )
+        else:
+            ui.notify(f"Fehler beim Hochladen: {error_msg}", color="negative")
+
+    except Exception as e:
+        handle_upload_error(e, out_dir, error_dir, file_name)
+
+
+async def handle_upload_error(error, out_dir, error_dir, file_name):
+    """Handle general errors during file upload"""
+    try:
+        os.makedirs(error_dir, exist_ok=True)
+
+        # Save error details to file
+        async with aiofiles.open(os.path.join(error_dir, file_name + ".txt"), "w") as f:
+            await f.write(str(error))
+
+        error_message = str(error)
+        if len(error_message) > 100:
+            error_message = error_message[:100] + "..."
+
+        # Update UI with error status
+        app.storage.user.get("updates")[out_dir] = FileStatus.create_error(
+            filename=file_name,
+            out_dir=out_dir,
+            last_modified=time.time(),
+            error_message=f"Verarbeitungsfehler: {error_message}",
+        )
+
+        ui.notify(f"Fehler bei der Verarbeitung: {error_message}", color="negative")
+
+    except Exception as e:
+        print(f"Error in error handler: {e}")
+        ui.notify("Ein unerwarteter Fehler ist aufgetreten", color="negative")
+
+
+async def poll_status(request_id: str, out_dir: str, refresh_file_view):
+    """Poll the API for transcription status"""
+    while True:
+        try:
+            logger.info("Polling transcription status")
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{API_URL}/status/{request_id}") as response:
+                    logger.info(f"Received response from API, status {response.status}")
+                    if response.status == 200:
+                        status = await response.json()
+                        logger.info(f"Transcription status: {status}")
+
+                        if status["status"] == "completed":
+                            # Handle completed transcription
+                            result = status["result"]
+                            file_name = app.storage.user.get("updates")[
+                                out_dir
+                            ].filename
+
+                            # Save transcription data
+                            async with aiofiles.open(
+                                os.path.join(out_dir, file_name + ".json"), "w"
+                            ) as f:
+                                await f.write(str(result["transcription"]))
+
+                            # Save SRT
+                            async with aiofiles.open(
+                                os.path.join(out_dir, file_name + ".srt"), "w"
+                            ) as f:
+                                await f.write(result["srt"])
+
+                            # Save viewer HTML
+                            async with aiofiles.open(
+                                os.path.join(out_dir, file_name + ".html"), "w"
+                            ) as f:
+                                await f.write(result["viewer"])
+
+                            # Update UI status
+                            app.storage.user.get("updates")[out_dir] = (
+                                FileStatus.create_completed(
+                                    filename=file_name,
+                                    out_dir=out_dir,
+                                    last_modified=time.time(),
+                                )
+                            )
+                            break
+
+                        elif status["status"] == "processing":
+                            # Update processing status
+                            app.storage.user.get("updates")[out_dir] = FileStatus(
+                                filename=app.storage.user.get("updates")[
+                                    out_dir
+                                ].filename,
+                                out_dir=out_dir,
+                                status_message="Wird verarbeitet...",
+                                progress_percentage=50.0,
+                                estimated_time_remaining=status[
+                                    "estimated_processing_time"
+                                ],
+                                last_modified=time.time(),
+                            )
+
+                        else:
+                            # Update queue status
+                            app.storage.user.get("updates")[out_dir] = FileStatus(
+                                filename=app.storage.user.get("updates")[
+                                    out_dir
+                                ].filename,
+                                out_dir=out_dir,
+                                status_message=f"In Warteschlange (Position {status['position']})",
+                                progress_percentage=0.0,
+                                estimated_time_remaining=status["estimated_wait_time"],
+                                last_modified=time.time(),
+                                queue_position=status["position"],
+                            )
+
+                        refresh_file_view(refresh_queue=True, refresh_results=True)
+
+                    elif response.status == 404:
+                        # Request not found
+                        break
+
+            await asyncio.sleep(1)
+
+        except Exception as e:
+            print(f"Error polling status: {e}")
+            await asyncio.sleep(5)
 
 
 def handle_reject(e: events.GenericEventArguments):
@@ -389,8 +493,17 @@ async def main_page():
         file_status: FileStatus
         for file_status in updates:
             if 0 <= file_status.progress_percentage < 100.0:
+                status_text = file_status.status_message
+                if file_status.estimated_time_remaining > 0:
+                    minutes = file_status.estimated_time_remaining // 60
+                    seconds = file_status.estimated_time_remaining % 60
+                    time_text = (
+                        f"{minutes}m {seconds}s" if minutes > 0 else f"{seconds}s"
+                    )
+                    status_text += f" ({time_text})"
+
                 ui.markdown(
-                    f"<b>{file_status.filename.replace('_', '\\_')}</b>: {file_status.status_message}"
+                    f"<b>{file_status.filename.replace('_', '\\_')}</b>: {status_text}"
                 )
                 ui.linear_progress(
                     value=file_status.progress_percentage / 100,
@@ -519,7 +632,7 @@ async def main_page():
                     "w-full no-wrap"
                 ).style("width: min(40vw, 400px)"):
                     ui.label(
-                        "Diese Prototyp-Applikation wurde vom Statistischen Amt Kanton Zürich entwickelt."
+                        "Diese Prototyp-Applikation wurde vom Statistischen Amt Kanton Zürich entwickelt und vom Statistischen Amt Basel Stadt erweitert."
                     )
 
                 ui.button(
