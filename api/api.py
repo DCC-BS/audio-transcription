@@ -220,8 +220,8 @@ async def get_status(request_id: str):
     item = active_requests[request_id]
 
     # Update position if still queued
-    # if item.status == "queued":
-    #     item.position = list(active_requests.values()).index(item)
+    if item.status == "queued":
+        item.position = list(active_requests.values()).index(item)
 
     response = {
         "status": item.status,
