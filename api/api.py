@@ -17,7 +17,6 @@ from viewer import create_viewer
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException
 from queue import Queue
 import asyncio
-import time
 import uuid
 from typing import Dict
 
@@ -50,11 +49,12 @@ class QueueItem:
     result: dict = None
     position: int = 0
     audio_length: float = 0.0
+    estimated_wait_time: float = 0.0
+    estimated_processing_time: float = 0.0
 
 
 request_queue = Queue()
 active_requests: Dict[str, QueueItem] = {}
-
 
 
 @asynccontextmanager
@@ -90,15 +90,17 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+
 async def get_audio_length(file_content: bytes, temp_file_path: Path) -> float:
     # Write temporary file to get duration
     with temp_file_path.open("wb") as temp_file:
         temp_file.write(file_content)
-    
+
     # Get audio duration using ffmpeg
     probe = ffmpeg.probe(str(temp_file_path))
-    duration = float(probe['streams'][0]['duration'])
+    duration = float(probe["streams"][0]["duration"])
     return duration
+
 
 async def process_queue():
     global PROCESSING
@@ -141,11 +143,9 @@ async def process_queue():
                 total_wait_time = 0.0
                 for queued_item in list(active_requests.values()):
                     if queued_item.status == "queued":
-                        # Each 10 seconds of audio takes ~1 second to process
-                        processing_time = queued_item.audio_length / 10
                         queued_item.position -= 1
+                        total_wait_time += item.estimated_processing_time
                         queued_item.estimated_wait_time = total_wait_time
-                        total_wait_time += processing_time
 
         await asyncio.sleep(1)
 
@@ -157,17 +157,17 @@ async def transcribe_audio(
     if request_queue.qsize() >= MAX_QUEUE_SIZE:
         raise HTTPException(
             status_code=503,  # Service Unavailable
-            detail=queue_full_message
+            detail=queue_full_message,
         )
-    
+
     # Generate unique ID for this request
     request_id = str(uuid.uuid4())
     file_content = await audio_file.read()
-    
+
     # Create temporary file to get audio length
     temp_file_path = Path(ROOT + f"temp_{audio_file.filename}")
     audio_length = await get_audio_length(file_content, temp_file_path)
-    
+
     # Cleanup temp file
     if temp_file_path.exists():
         temp_file_path.unlink()
@@ -179,7 +179,7 @@ async def transcribe_audio(
         file_content=file_content,
         hotwords=hotwords,
         timestamp=datetime.now(),
-        audio_length=audio_length
+        audio_length=audio_length,
     )
 
     # Calculate waiting time based on items in queue
@@ -192,6 +192,10 @@ async def transcribe_audio(
     # Add current item's processing time
     processing_time = audio_length / 10
 
+    item.status = "queued"
+    item.estimated_wait_time = total_wait_time
+    item.estimated_processing_time = processing_time
+
     # Update position
     item.position = request_queue.qsize() + (1 if PROCESSING else 0)
 
@@ -202,9 +206,9 @@ async def transcribe_audio(
     return {
         "request_id": request_id,
         "position": item.position,
-        "status": "queued",
-        "estimated_wait_time": total_wait_time,
-        "estimated_processing_time": processing_time
+        "status": item.status,
+        "estimated_wait_time": item.estimated_wait_time,
+        "estimated_processing_time": item.estimated_processing_time,
     }
 
 
@@ -216,10 +220,15 @@ async def get_status(request_id: str):
     item = active_requests[request_id]
 
     # Update position if still queued
-    if item.status == "queued":
-        item.position = list(active_requests.values()).index(item)
+    # if item.status == "queued":
+    #     item.position = list(active_requests.values()).index(item)
 
-    response = {"status": item.status, "position": item.position}
+    response = {
+        "status": item.status,
+        "position": item.position,
+        "estimated_wait_time": item.estimated_wait_time,
+        "estimated_processing_time": item.estimated_processing_time,
+    }
 
     if item.status == "completed":
         response["result"] = item.result

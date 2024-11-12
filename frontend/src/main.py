@@ -72,7 +72,8 @@ async def handle_upload(e: events.UploadEventArguments, refresh_file_view):
             out_dir=out_dir,
             status_message="Datei wird hochgeladen...",
             progress_percentage=25.0,
-            estimated_time_remaining=10,
+            estimated_time_remaining=0.0
+            ,
             last_modified=time.time(),
         )
 
@@ -98,6 +99,12 @@ async def handle_upload(e: events.UploadEventArguments, refresh_file_view):
                         queue_position=result["position"],
                     )
 
+                    # Save audio file
+                    async with aiofiles.open(
+                        os.path.join(out_dir, file_name + ".mp4"), "wb"
+                    ) as f:
+                        await f.write(content)
+
                     # Start polling for status
                     asyncio.create_task(
                         poll_status(result["request_id"], out_dir, refresh_file_view)
@@ -116,6 +123,9 @@ async def handle_error(response, out_dir, error_dir, file_name):
     try:
         error_msg = await response.text()
         os.makedirs(error_dir, exist_ok=True)
+
+        # Clean Up out dir
+        shutil.rmtree(out_dir)
 
         # Save error details to file
         async with aiofiles.open(os.path.join(error_dir, file_name + ".txt"), "w") as f:
@@ -270,7 +280,7 @@ def handle_reject(e: events.GenericEventArguments):
 
 # After a file was added, refresh the gui.
 def handle_added(e: events.GenericEventArguments, upload_element, refresh_file_view):
-    # upload_element.run_method("removeUploadedFiles")
+    upload_element.run_method("removeUploadedFiles")
     refresh_file_view(refresh_queue=True, refresh_results=False)
 
 
